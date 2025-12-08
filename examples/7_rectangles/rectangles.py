@@ -21,16 +21,17 @@ def draw_reference_box(chart: Chart, candle_data: pd.DataFrame):
     )
     # The box is added directly to the series so it stays static and non-editable.
 
-
 if __name__ == '__main__':
     df = pd.read_csv('ohlcv.csv')
 
     chart = Chart()
     chart.set(df)
 
+    draw_reference_box(chart, df)
+
     chart.topbar.button(
         'draw_box',
-        'Draw Example Rectangle',
+        'Show Rectangle',
         func=lambda c: draw_reference_box(c, df),
     )
 
