@@ -30,8 +30,14 @@ def draw_reference_box(chart: Chart, candle_data: pd.DataFrame):
     )
     # The box is added directly to the series so it stays static and non-editable.
 
+
+def load_candles() -> pd.DataFrame:
+    csv_path = Path(__file__).resolve().with_name('ohlcv.csv')
+    return pd.read_csv(csv_path)
+
+
 if __name__ == '__main__':
-    df = pd.read_csv('ohlcv.csv')
+    df = load_candles()
 
     chart = Chart()
     chart.set(df)
