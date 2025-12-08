@@ -1,4 +1,13 @@
+from pathlib import Path
+import sys
+
 import pandas as pd
+
+# Ensure the repository root is importable when running the example directly
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from lightweight_charts import Chart
 
 
