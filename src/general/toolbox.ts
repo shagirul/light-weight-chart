@@ -1,13 +1,15 @@
 import { DrawingTool } from "../drawing/drawing-tool";
 import { TrendLine } from "../trend-line/trend-line";
 import { Box } from "../box/box";
+import { StaticBox } from "../box/static-box";
 import { Drawing } from "../drawing/drawing";
 import { ContextMenu } from "../context-menu/context-menu";
 import { GlobalParams } from "./global-params";
-import { IChartApi, ISeriesApi, SeriesType } from "lightweight-charts";
+import { CandlestickData, IChartApi, ISeriesApi, Logical, SeriesType, Time } from "lightweight-charts";
 import { HorizontalLine } from "../horizontal-line/horizontal-line";
 import { RayLine } from "../horizontal-line/ray-line";
 import { VerticalLine } from "../vertical-line/vertical-line";
+import { Point } from "../drawing/data-source";
 
 
 interface Icon {
@@ -32,12 +34,16 @@ export class ToolBox {
 
     private _commandFunctions: Function[];
     private _handlerID: string;
+    private _series: ISeriesApi<SeriesType>;
+
+    private _indicatorBox: StaticBox | null = null;
 
     private _drawingTool: DrawingTool;
 
     constructor(handlerID: string, chart: IChartApi, series: ISeriesApi<SeriesType>, commandFunctions: Function[]) {
         this._handlerID = handlerID;
         this._commandFunctions = commandFunctions;
+        this._series = series;
         this._drawingTool = new DrawingTool(chart, series, () => this.removeActiveAndSave());
         this.div = this._makeToolBox()
         new ContextMenu(this.saveDrawings, this._drawingTool);
@@ -66,10 +72,80 @@ export class ToolBox {
         this.buttons.push(this._makeToolBoxElement(RayLine, 'KeyR', ToolBox.RAY_SVG));
         this.buttons.push(this._makeToolBoxElement(Box, 'KeyB', ToolBox.BOX_SVG));
         this.buttons.push(this._makeToolBoxElement(VerticalLine, 'KeyV', ToolBox.VERT_SVG, true));
+        this.buttons.push(this._makeIndicatorButton());
         for (const button of this.buttons) {
             div.appendChild(button);
         }
         return div
+    }
+
+    private _makeIndicatorButton() {
+        const elem = document.createElement('div');
+        elem.classList.add('toolbox-button');
+
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("width", "29");
+        svg.setAttribute("height", "29");
+
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.innerHTML = '<rect x="6" y="8" width="18" height="13" rx="2" ry="2" />';
+        group.setAttribute("fill", window.pane.color);
+
+        svg.appendChild(group);
+        elem.appendChild(svg);
+
+        elem.addEventListener('click', () => this._drawIndicatorBox());
+
+        this._commandFunctions.push((event: KeyboardEvent) => {
+            if (this._handlerID !== window.handlerInFocus) return false;
+            if (event.altKey && event.code === 'KeyI') {
+                event.preventDefault();
+                this._drawIndicatorBox();
+                return true;
+            }
+            return false;
+        });
+
+        return elem;
+    }
+
+    private _drawIndicatorBox() {
+        const firstCandle = this._series.dataByIndex(0 as Logical);
+        const secondCandle = this._series.dataByIndex(1 as Logical);
+        const thirdCandle = this._series.dataByIndex(2 as Logical);
+
+        const isCandle = (candle: any): candle is CandlestickData<Time> => candle && "high" in candle && "low" in candle;
+        const candles = [firstCandle, secondCandle, thirdCandle];
+
+        if (!candles.every(isCandle)) return;
+
+        const [first, , third] = candles;
+
+        const highs = candles.map((candle) => candle.high);
+        const lows = candles.map((candle) => candle.low);
+
+        const maxHigh = Math.max(...highs);
+        const minLow = Math.min(...lows);
+
+        const p1: Point = {
+            time: first.time || null,
+            logical: 0 as Logical,
+            price: maxHigh,
+        };
+
+        const p2: Point = {
+            time: third.time || null,
+            logical: 2 as Logical,
+            price: minLow,
+        };
+
+        if (this._indicatorBox) this._drawingTool.delete(this._indicatorBox);
+
+        this._indicatorBox = new StaticBox(p1, p2, {
+            fillColor: 'rgba(0, 123, 255, 0.2)',
+        });
+
+        this._drawingTool.addNewDrawing(this._indicatorBox);
     }
 
     private _makeToolBoxElement(DrawingType: new (...args: any[]) => Drawing, keyCmd: string, paths: string, rotate=false) {
